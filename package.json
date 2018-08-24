@@ -1,0 +1,10 @@
+{
+  "name": "@alexeimyshkouski/pubsub",
+  "version": "0.0.1",
+  "description": "Pub/Sub interface",
+  "main": "hub.js",
+  "scripts": {
+    "test": "mocha test"
+  },
+  "author": "Alexei Myshkouski"
+}
