@@ -4,7 +4,11 @@
   "description": "Pub/Sub interface",
   "main": "hub.js",
   "scripts": {
-    "test": "mocha test"
+    "test": "node test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Myshkouski/pubsub.git"
   },
   "author": "Alexei Myshkouski"
 }

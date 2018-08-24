@@ -32,4 +32,4 @@ two.on('broadcast', (channel, date) => {
 
 two.emit('message', '/ee/2', 'two ok')
 
-hub.broadcast('/ee', 'test')
+hub.publish('/ee', 'test')

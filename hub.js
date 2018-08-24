@@ -30,6 +30,19 @@ function _normalizeChannelName(channelName, separator) {
   return channelName
 }
 
+function _broadcast(subscribers, ...args) {
+  if (subscribers.length) {
+    setImmediate(() => {
+      for (var index in subscribers) {
+        var subscriber = subscribers[index]
+        subscriber.call(undefined, ...args)
+      }
+    })
+  }
+
+  return subscribers.length
+}
+
 class Hub {
   constructor(options = {}) {
     this._channelNames = {}
@@ -107,13 +120,13 @@ class Hub {
     hub._eeSubscribers[channelName] = []
   }
 
-  remove(channelName, removeChildChannels) {
+  remove(channelName) {
     var hub = this
 
     channelName = _normalizeChannelName(channelName, hub._separator)
     if (channelName in hub._channelNames) {
       var channelNames = [channelName]
-      if (hub._linked && removeChildChannels) {
+      if (hub._linked) {
         var childChannelNames = hub._childChannelNames
         for (var name in childChannelNames) {
           channelNames.push(name)
@@ -186,7 +199,7 @@ class Hub {
     return false
   }
 
-  publish(channelName, applyFilter, ...args) {
+  publish(channelName, ...args) {
     var hub = this
 
     channelName = _normalizeChannelName(channelName, hub._separator)
@@ -200,24 +213,10 @@ class Hub {
         }
       }
 
-      if (subscribers.length) {
-        subscribers = subscribers.filter(subscriber => applyFilter(subscriber))
-        // setImmediate(() => {
-        for (var index in subscribers) {
-          var subscriber = subscribers[index]
-          subscriber.call(undefined, ...args)
-        }
-        // })
-
-        return subscribers.length
-      }
+      return _broadcast.call(hub, subscribers, channelName, ...args)
     }
 
     return false
-  }
-
-  broadcast(channelName, ...args) {
-    return this.publish(channelName, () => true, ...args)
   }
 
   connect(channelName, eventEmitter, eventNames) {
@@ -252,8 +251,7 @@ class Hub {
           if (channelName in hub._channelNames) {
             var channelIndex = hub._eeChannels[channelName].indexOf(eventEmitter)
             if (~channelIndex) {
-              var eeSubscriber = hub._eeSubscribers[channelName][channelIndex]
-              hub.publish(channelName, subscriber => subscriber !== eeSubscriber, ...args)
+              _broadcast.call(hub, [].concat(hub._eeSubscribers[channelName]).splice(channelIndex, 1), channelName, ...args)
             }
           }
         }
