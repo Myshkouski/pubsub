@@ -2,34 +2,37 @@ var Hub = require('./hub')
 
 var hub = new Hub({
   separator: '/',
-  linked: false
+  linked: true
 })
 
-hub.create('/ee')
-hub.create('/ee/1')
-hub.create('/ee/2')
+hub.create('/test')
+hub.create('/test/other')
 
 var EventEmitter = require('events')
 var one = new EventEmitter()
 
-hub.connect('/ee', one)
-hub.connect('/ee/1', one)
-
-one.on('broadcast', (channel, date) => {
-  console.log('[one]', channel, date)
+const test1 = hub.subscribe('/test', message => {
+  console.log('test1', message)
 })
 
-one.emit('message', '/ee/1', 'one ok')
-
-var two = new EventEmitter()
-
-hub.connect('/ee', two)
-hub.connect('/ee/2', two)
-
-two.on('broadcast', (channel, date) => {
-  console.log('[two]', channel, date)
+const test2 = hub.subscribe('/test', message => {
+  console.log('test2', message)
 })
 
-two.emit('message', '/ee/2', 'two ok')
+const test3 = hub.subscribe('/test', message => {
+  console.log('test3', message)
+})
 
-hub.publish('/ee', 'test')
+const otherTest1 = hub.subscribe('/test/other', message => {
+  console.log('otherTest1', message)
+})
+
+const otherTest2 = hub.subscribe('/test/other', message => {
+  console.log('otherTest2', message)
+})
+
+const otherTest3 = hub.subscribe('/test/other', message => {
+  console.log('otherTest3', message)
+})
+
+hub.broadcast(test3, 'message')
