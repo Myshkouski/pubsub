@@ -156,6 +156,12 @@ class Hub {
         //   hub.disconnect(channelName, eventEmitters[index])
         // }
 
+        var tokens = [].concat(hub._tokens[channelName])
+        for (var index in tokens) {
+          hub.unsubscribe(token[index])
+        }
+
+        delete hub._tokens[channelName]
         delete hub._channelNames[channelName]
         delete hub._subscriptions[channelName]
         if (this._linked) {
@@ -164,7 +170,6 @@ class Hub {
         }
         // delete hub._eeChannels[channelName]
         // delete hub._eeSubscribers[channelName]
-
       }
     }
 
@@ -203,13 +208,13 @@ class Hub {
   unsubscribe(token) {
     var hub = this
 
-    if (token._hub !== hub) {
+    if (token._hub === hub) {
       var channelName = token._channelName
       if (channelName in hub._channelNames) {
-        var index = hub._subscriptions.indexOf(token._subscriber)
+        var index = hub._subscriptions[channelName].indexOf(token._subscriber)
         if (~index) {
-          hub._subscriptions.splice(index, 1)
-          hub._tokens.splice(index, 1)
+          hub._subscriptions[channelName].splice(index, 1)
+          hub._tokens[channelName].splice(index, 1)
           return true
         }
       }
@@ -237,7 +242,7 @@ class Hub {
             }
           }
 
-          return _publish.call(hub, subscribers, channelName, ...args)
+          return _publish.call(hub, subscribers, ...args)
         }
       }
     }
@@ -259,7 +264,7 @@ class Hub {
         }
       }
 
-      return _publish.call(hub, subscribers, channelName, ...args)
+      return _publish.call(hub, subscribers, ...args)
     }
 
     return 0
