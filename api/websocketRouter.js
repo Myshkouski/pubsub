@@ -7,7 +7,7 @@ class Layer {
       separator: '/'
     })
 
-    this._middleware = {}
+    this._middleware = new Map()
   }
 
   use() {
@@ -21,7 +21,8 @@ class Layer {
 
     const re = pathToRegexp(path)
     const hub = this._hub
-    // hub.create(re.toString())
+
+    this._middleware.set(re, middleware)
 
     console.log(hub)
   }

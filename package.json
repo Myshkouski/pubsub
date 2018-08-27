@@ -1,14 +1,33 @@
 {
   "name": "@alexeimyshkouski/pubsub",
   "version": "0.0.1",
+  "main": "hub",
   "description": "Pub/Sub interface",
-  "main": "hub.js",
   "scripts": {
-    "test": "node test"
+    "dev": "cross-env DEBUG=* supervisor -- api/server.js",
+    "start": "node api/server.js",
+    "build": "nuxt generate"
+  },
+  "dependencies": {
+    "koa": "^2.5.2",
+    "koa-compose": "^4.1.0",
+    "koa-compress": "^3.0.0",
+    "koa-router": "^7.4.0",
+    "mime": "^2.3.1",
+    "nuxt": "^1.4.2",
+    "path-to-regexp": "^2.3.0",
+    "socket.io": "^2.1.1",
+    "socket.io-client": "^2.1.1",
+    "ws": "^6.0.0"
+  },
+  "devDependencies": {
+    "cross-env": "^5.2.0",
+    "debug": "^3.1.0",
+    "pug": "^2.0.3",
+    "supervisor": "^0.12.0"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/Myshkouski/pubsub.git"
-  },
-  "author": "Alexei Myshkouski"
+  }
 }

@@ -50,7 +50,11 @@ class Token {
     this._subscriber = subscriber
   }
 
-  cancel() {
+  broadcast(...args) {
+    this._hub.broadcast(this, ...args)
+  }
+
+  unsubscribe() {
     this._hub.unsubscribe(this)
   }
 }
