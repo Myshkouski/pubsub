@@ -1,4 +1,5 @@
 const WebSocket = require('ws')
+const WebsocketRouter = require('./websocketRouter')
 const Hub = require('../../pubsub')
 
 class WsHub {
@@ -26,13 +27,6 @@ class WsHub {
       }
     })
 
-    const hub = new Hub({
-      separator: '/'
-    })
-
-    hub.create('/connect')
-    hub.create('/disconnect')
-
     wsServer.on('connection', (request, websocket) => {
       websocket
         .once('close', () => {
@@ -55,14 +49,9 @@ class WsHub {
           }))
         }
       })
-
-      hub.broadcast(token, {
-        address: request.connection.remoteAddress
-      })
     })
 
     this._wss = wsServer
-    this._pubsub = hub
   }
 
   callback() {

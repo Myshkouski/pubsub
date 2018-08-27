@@ -1,7 +1,7 @@
 {
   "main": "src/index",
   "scripts": {
-    "service": "cross-env DEBUG=* supervisor api/server.js",
+    "service": "cross-env DEBUG=* supervisor -- api/server.js",
     "frontend": "nuxt"
   },
   "dependencies": {
@@ -12,6 +12,7 @@
     "koa-router": "^7.4.0",
     "mime": "^2.3.1",
     "nuxt": "^1.4.2",
+    "path-to-regexp": "^2.3.0",
     "socket.io": "^2.1.1",
     "socket.io-client": "^2.1.1",
     "ws": "^6.0.0"

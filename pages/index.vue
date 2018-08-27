@@ -27,12 +27,10 @@ export default {
 
 	methods: {
 		syncName(name) {
-			connection.ws.send('/ws')
-
-			// connection.ws.send(JSON.stringify({
-			// 	kind: 'name',
-			// 	name
-			// }))
+			connection.ws.send(JSON.stringify({
+				kind: '/name',
+				name
+			}))
 
 			// connection.io.emit('name', this.nickname)
 		}
