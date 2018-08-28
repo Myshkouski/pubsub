@@ -6,8 +6,8 @@ const createContext = require('./context')
 const DEFAULT_STATUS_CODE = 1005
 
 function _finishResponse(ctx) {
-  if(!ctx.handled) {
-    if(ctx.statusCode !== DEFAULT_STATUS_CODE) {
+  if (!ctx.handled) {
+    if (ctx.statusCode !== DEFAULT_STATUS_CODE) {
       ctx.websocket.close(ctx.statusCode, ctx.status)
     }
   }
