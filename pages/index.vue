@@ -8,7 +8,6 @@ div
 </template>
 
 <script>
-import SocketIo from 'socket.io-client'
 const connection = {}
 
 export default {
@@ -21,6 +20,7 @@ export default {
 
 	watch: {
 		nickname(update) {
+			console.log(this.nickname)
 			this.syncName(update)
 		}
 	},
@@ -28,26 +28,25 @@ export default {
 	methods: {
 		syncName(name) {
 			connection.ws.send(JSON.stringify({
-				kind: '/name',
-				name
+				scope: '/name/' + this.nickname,
 			}))
-
-			// connection.io.emit('name', this.nickname)
 		}
 	},
 
-	async mounted() {
+	created() {
+		console.log('created', arguments)
+	},
+
+	mounted() {
+		console.log('mounted', arguments)
+
 		const serviceHost = window.location.hostname + ':8080'
 
 		const ws = new WebSocket('ws://' + serviceHost)
-		// const io = SocketIo('ws://' + serviceHost, {
-		// 	// transports: ['websocket']
-		// })
 
 		Object.assign(connection, {
 			serviceHost,
-			ws,
-			// io
+			ws
 		})
 
 		ws.addEventListener('open', event => {
@@ -77,14 +76,6 @@ export default {
 
 			this.syncName(this.nickname)
 		})
-
-		// io.on('connect', () => {
-		// 	this.syncName(this.nickname)
-		//
-		// 	io.on('online', data => {
-		// 		this.online = data
-		// 	})
-		// })
 	}
 }
 </script>

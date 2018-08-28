@@ -7,47 +7,56 @@ const Koa = require('koa')
 const KoaRouter = require('koa-router')
 const compress = require('koa-compress')
 
-const WsHub = require('./wsHub')
-
 // const SocketIo = require('socket.io')
 
 const mime = require('mime')
 
 const __static = path.resolve(process.cwd(), 'dist')
 
-const staticRouter = new KoaRouter()
-staticRouter
-  .prefix('/static')
-  .redirect('/', '/index.html')
-  .use(compress({
-    threshold: 512
-  }))
-  .get('/:path*', async ctx => {
-    const pathname = path.resolve(__static, ctx.params.path)
-    ctx.type = mime.getType(pathname)
-    ctx.body = fs.createReadStream(pathname)
-  })
+function serve(ctx, pathname) {
+  ctx.type = mime.getType(pathname)
+  ctx.body = fs.createReadStream(pathname)
+}
 
 const app = new Koa()
 
 const httpRouter = new KoaRouter()
 httpRouter
-  .redirect('/', '/static')
-  .all('/_nuxt/*', ctx => {
-    ctx.redirect('/static' + ctx.url)
+  .get('/_nuxt/*', ctx => {
+    serve(ctx, path.join(__static, ctx.url))
   })
-  .use(staticRouter.routes())
-  .use(staticRouter.allowedMethods())
+  .get('/*', ctx => {
+    serve(ctx, path.join(__static, ctx.url, 'index.html'))
+  })
 
 app
   .use(httpRouter.routes())
   .use(httpRouter.allowedMethods())
 
-const wsHub = new WsHub()
+const Ws = require('./ws')
+const WsRouter = require('./wsRouter')
+const ws = new Ws()
+const wsRouter = new WsRouter()
+
+wsRouter
+  .use((ctx, next) => {
+    ctx.send('hello world')
+    next()
+  })
+  .use('/name/:nick', ctx => {
+    ctx.send({
+      scope: ctx.originalScope,
+      payload: 'Hello, ' + ctx.params.nick + '!'
+    })
+  })
+
+ws
+  .use(require('./parseMessage')())
+  .use(wsRouter.middleware())
 
 const server = http.createServer()
 
 server.on('request', app.callback())
-server.on('upgrade', wsHub.callback())
+server.on('upgrade', ws.callback())
 
 server.listen(8080)
