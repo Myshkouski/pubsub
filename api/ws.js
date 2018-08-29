@@ -1,16 +1,16 @@
 const compose = require('koa-compose')
-const WebSocket = require('ws')
+const WebSocket = require('../../ws')
 const http = require('http')
 const createContext = require('./context')
 // const Hub = require('../../pubsub')
 
 const DEFAULT_STATUS_CODE = 1005
 
-function _finsishConnection(ctx) {
+function _finishUpgradeHandling(ctx) {
 
 }
 
-function _finishMessageHandling() {
+function _finishMessageHandling(ctx) {
   if (ctx.statusCode !== DEFAULT_STATUS_CODE) {
     ctx.websocket.close(ctx.statusCode, ctx.status)
   }
@@ -28,25 +28,9 @@ class Ws {
 
     const wsServer = new WebSocket.Server({
       noServer: true,
-      verifyClient: async (info, cb) => {
-        const statusCode = 403
-        const ctx = createContext({
-          _: {
-            request: info.req
-          },
-          origin: info.origin,
-          statusCode,
-          status: http.STATUS_CODES[statusCode]
-        })
-
-        await this._composedConnectionMiddleware(ctx)
-
-        if(ctx.statusCode < 400) {
-          cb(true)
-        } else {
-          cb(false, ctx.statusCode, ctx.status, ctx.headers)
-        }
-      },
+      // default
+      verifyClient: null,
+      handleProtocols: () => null,
       perMessageDeflate: {
         // See zlib defaults.
         zlibDeflateOptions: {
@@ -78,15 +62,18 @@ class Ws {
     })
 
     wsServer
-      .on('connection', (request, websocket) => {
-        this
-          .handleConnection(request, websocket)
-          // .then(_finsish)
+      .on('upgrade', async (req, res, head) => {
+        const ctx = await this.handleUpgrade(req, res, head)
 
+        _finishUpgradeHandling(ctx)
+
+        wsServer.completeUpgrade(req, res, head)
+      })
+      .on('connection', websocket => {
         websocket
           .on('message', message => {
             this
-              .handle(message, websocket, request)
+              .handleMessage(message, websocket)
               .then(_finishMessageHandling)
           })
           .once('close', () => {
@@ -128,11 +115,11 @@ class Ws {
     return this
   }
 
-  async handleConnection(request, websocket) {
+  async handleUpgrade(request, response) {
     const ctx = createContext({
       _: {
         request,
-        websocket
+        response
       }
     })
 
@@ -141,7 +128,7 @@ class Ws {
     return ctx
   }
 
-  handle(message, websocket, request) {
+  handleMessage(message, websocket, request) {
     const ctx = createContext({
       _: {
         message,
@@ -155,20 +142,8 @@ class Ws {
   }
 
   callback() {
-    const hub = this
-    const wsServer = hub._wss
-    return function _handleUpgrade(request, socket, head) {
-      const response = new http.ServerResponse(request)
-      response.socket = socket
-      response.statusCode = 502
-      response.setHeader('connection', 'close')
-      response.setHeader('content-length', 0)
-      console.log(response.getHeaders())
-      response.end()
-      console.log(response)
-      // wsServer.handleUpgrade(request, socket, head, websocket => {
-      //   wsServer.emit('connection', request, websocket)
-      // })
+    return (request, socket, head) => {
+      this._wss.handleUpgrade(request, socket, head)
     }
   }
 

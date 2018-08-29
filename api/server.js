@@ -78,8 +78,8 @@ ws
     ctx.statusCode = 101
     next()
   })
-  // .use(require('./parseMessage')())
-  // .use(wsRouter.middleware())
+// .use(require('./parseMessage')())
+// .use(wsRouter.middleware())
 
 const server = http.createServer()
 
