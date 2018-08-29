@@ -4,7 +4,7 @@
   "main": "hub",
   "description": "Pub/Sub interface",
   "scripts": {
-    "dev": "cross-env DEBUG=* supervisor -- api/server.js",
+    "dev": "cross-env DEBUG=* supervisor -w api -- api/server.js",
     "build": "nuxt generate --spa",
     "nuxt": "nuxt"
   },

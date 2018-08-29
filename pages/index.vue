@@ -12,46 +12,48 @@ const connection = {}
 
 function reconnect() {
   setTimeout(() => {
-    connect(connection.serviceHost)
+    connect(connection.host)
   }, 2000)
 }
 
-function connect(serviceHost) {
-  const ws = new WebSocket('ws://' + serviceHost)
+function connect(host, protocols) {
+  return new Promise(resolve => {
+		const ws = new WebSocket('ws://' + host, protocols)
 
-  Object.assign(connection, {
-    serviceHost,
-    ws
-  })
+	  Object.assign(connection, {
+	    host,
+	    ws
+	  })
 
-  ws.addEventListener('open', event => {
-    console.log('ws opened')
+	  ws.addEventListener('open', event => {
+	    console.log('ws opened')
 
-    ws.addEventListener('error', event => {
-      console.log('ws error', event)
-      reconnect()
-    })
+	    ws.addEventListener('error', event => {
+	      console.log('ws error', event)
+	      reconnect()
+	    })
 
-    ws.addEventListener('close', event => {
-      console.log('ws closed', event)
-    })
+	    ws.addEventListener('close', event => {
+	      console.log('ws closed', event)
+	    })
 
-    ws.addEventListener('message', ({
-      data
-    }) => {
-      try {
-        data = JSON.parse(data)
+	    ws.addEventListener('message', ({
+	      data
+	    }) => {
+	      try {
+	        data = JSON.parse(data)
 
-        if (data.kind == 'online') {
-          this.online = data.online
-        }
-      } catch (error) {
-        console.error(error)
-      }
-    })
-  })
+	        if (data.kind == 'online') {
+	          this.online = data.online
+	        }
+	      } catch (error) {
+	        console.error(error)
+	      }
+	    })
 
-  return ws
+			resolve(ws)
+	  })
+	})
 }
 
 export default {
@@ -76,23 +78,13 @@ export default {
     }
   },
 
-  created() {
-    console.log('created', arguments)
-  },
+  async mounted() {
+    const ws = await connect(window.location.hostname + ':8080', ['json', 'msgpack'])
 
-  mounted() {
-    console.log('mounted', arguments)
-
-    const serviceHost = window.location.hostname + ':8080'
-
-    const ws = connect(serviceHost)
-
-    ws.addEventListener('open', () => {
-      this.syncName(this.nickname)
-      connection.ws.send(JSON.stringify({
-        scope: '/tick'
-      }))
-    })
+		this.syncName(this.nickname)
+		connection.ws.send(JSON.stringify({
+			scope: '/tick'
+		}))
   }
 }
 </script>

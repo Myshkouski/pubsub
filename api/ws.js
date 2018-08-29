@@ -1,22 +1,52 @@
 const compose = require('koa-compose')
 const WebSocket = require('ws')
+const http = require('http')
 const createContext = require('./context')
 // const Hub = require('../../pubsub')
 
 const DEFAULT_STATUS_CODE = 1005
 
-function _finishResponse(ctx) {
-  if (!ctx.handled) {
-    if (ctx.statusCode !== DEFAULT_STATUS_CODE) {
-      ctx.websocket.close(ctx.statusCode, ctx.status)
-    }
+function _finsishConnection(ctx) {
+
+}
+
+function _finishMessageHandling() {
+  if (ctx.statusCode !== DEFAULT_STATUS_CODE) {
+    ctx.websocket.close(ctx.statusCode, ctx.status)
   }
 }
 
 class Ws {
   constructor() {
+    const middleware = []
+    this._middleware = middleware
+    this._composed = compose(middleware)
+
+    const connectionMiddleware = []
+    this._connectionMiddleware = connectionMiddleware
+    this._composedConnectionMiddleware = compose(connectionMiddleware)
+
     const wsServer = new WebSocket.Server({
       noServer: true,
+      verifyClient: async (info, cb) => {
+        const statusCode = 403
+        const ctx = createContext({
+          _: {
+            request: info.req
+          },
+          origin: info.origin,
+          statusCode,
+          status: http.STATUS_CODES[statusCode]
+        })
+
+        await this._composedConnectionMiddleware(ctx)
+
+        if(ctx.statusCode < 400) {
+          cb(true)
+        } else {
+          cb(false, ctx.statusCode, ctx.status, ctx.headers)
+        }
+      },
       perMessageDeflate: {
         // See zlib defaults.
         zlibDeflateOptions: {
@@ -34,7 +64,7 @@ class Ws {
         // Defaults to negotiated value.
         // serverNoContextTakeover: true,
         // Defaults to negotiated value.
-        // clientMaxWindowBits: 10,
+        clientMaxWindowBits: 10,
         // Defaults to negotiated value.
         // serverMaxWindowBits: 10,
 
@@ -47,38 +77,41 @@ class Ws {
       }
     })
 
-    wsServer.on('connection', (request, websocket) => {
-      websocket
-        .on('message', message => {
-          this.handle(message, websocket, request).then(_finishResponse)
-        })
-        .once('close', () => {
-          // hub.publish(token, {
-          //   address: request.connection.remoteAddress
-          // })
-          // hub.unsubscribe(token)
-        })
-        .once('error', () => {
-          // hub.publish(token, error.message)
-          // hub.unsubscribe(token)
-          websocket.terminate()
-        })
+    wsServer
+      .on('connection', (request, websocket) => {
+        this
+          .handleConnection(request, websocket)
+          // .then(_finsish)
 
-      // const token = hub.subscribe('/connect', data => {
-      //   if (websocket.readyState === WebSocket.OPEN) {
-      //     websocket.send(JSON.stringify({
-      //       kind: 'connect',
-      //       data
-      //     }))
-      //   }
-      // })
-    })
+        websocket
+          .on('message', message => {
+            this
+              .handle(message, websocket, request)
+              .then(_finishMessageHandling)
+          })
+          .once('close', () => {
+            // hub.publish(token, {
+            //   address: request.connection.remoteAddress
+            // })
+            // hub.unsubscribe(token)
+          })
+          .once('error', () => {
+            // hub.publish(token, error.message)
+            // hub.unsubscribe(token)
+            websocket.terminate()
+          })
 
-    const middleware = []
+        // const token = hub.subscribe('/connect', data => {
+        //   if (websocket.readyState === WebSocket.OPEN) {
+        //     websocket.send(JSON.stringify({
+        //       kind: 'connect',
+        //       data
+        //     }))
+        //   }
+        // })
+      })
 
     this._wss = wsServer
-    this._middleware = middleware
-    this._composed = compose(middleware)
   }
 
   use(middleware) {
@@ -86,6 +119,26 @@ class Ws {
     _middleware.push(middleware)
     this._composed = compose(_middleware)
     return this
+  }
+
+  req(middleware) {
+    const connectionMiddleware = this._connectionMiddleware
+    connectionMiddleware.push(middleware)
+    this._composedConnectionMiddleware = compose(connectionMiddleware)
+    return this
+  }
+
+  async handleConnection(request, websocket) {
+    const ctx = createContext({
+      _: {
+        request,
+        websocket
+      }
+    })
+
+    await this._composedConnectionMiddleware(ctx)
+
+    return ctx
   }
 
   handle(message, websocket, request) {
@@ -105,11 +158,21 @@ class Ws {
     const hub = this
     const wsServer = hub._wss
     return function _handleUpgrade(request, socket, head) {
-      wsServer.handleUpgrade(request, socket, head, websocket => {
-        wsServer.emit('connection', request, websocket)
-      })
+      const response = new http.ServerResponse(request)
+      response.socket = socket
+      response.statusCode = 502
+      response.setHeader('connection', 'close')
+      response.setHeader('content-length', 0)
+      console.log(response.getHeaders())
+      response.end()
+      console.log(response)
+      // wsServer.handleUpgrade(request, socket, head, websocket => {
+      //   wsServer.emit('connection', request, websocket)
+      // })
     }
   }
+
+  listen() {}
 }
 
 module.exports = Ws

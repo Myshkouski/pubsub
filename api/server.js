@@ -74,8 +74,12 @@ wsRouter
   })
 
 ws
-  .use(require('./parseMessage')())
-  .use(wsRouter.middleware())
+  .req((ctx, next) => {
+    ctx.statusCode = 101
+    next()
+  })
+  // .use(require('./parseMessage')())
+  // .use(wsRouter.middleware())
 
 const server = http.createServer()
 
