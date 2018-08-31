@@ -48,7 +48,7 @@ const ticker = setInterval(() => {
 }, 1000)
 
 wsRouter
-  .use('/tick', ctx => {
+  .scope('/tick', ctx => {
     ctx.send({
       scope: ctx.originalScope,
       status: 'ok'
@@ -65,7 +65,7 @@ wsRouter
       hub.unsubscribe(token)
     })
   })
-  .use('/name/:nick', ctx => {
+  .scope('/name/:nick', ctx => {
     ctx.send({
       scope: ctx.originalScope,
       params: ctx.params,
@@ -74,7 +74,7 @@ wsRouter
   })
 
 ws
-  .req((ctx, next) => {
+  .use((ctx, next) => {
     ctx.statusCode = 101
     next()
   })

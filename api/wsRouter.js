@@ -8,7 +8,7 @@ class WebsocketRouter {
     this._middleware = []
   }
 
-  use() {
+  scope() {
     let path = '(.*)'
     let middleware = arguments[0]
 

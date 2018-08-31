@@ -7,24 +7,26 @@ const createContext = require('./context')
 const DEFAULT_STATUS_CODE = 1005
 
 function _finishUpgradeHandling(ctx) {
-
+  return ctx
 }
 
 function _finishMessageHandling(ctx) {
-  if (ctx.statusCode !== DEFAULT_STATUS_CODE) {
+  if (ctx.statusCode === DEFAULT_STATUS_CODE) {
     ctx.websocket.close(ctx.statusCode, ctx.status)
   }
+
+  return ctx
 }
 
 class Ws {
   constructor() {
-    const middleware = []
-    this._middleware = middleware
-    this._composed = compose(middleware)
+    const upgradeMiddleware = []
+    this._connectionMiddleware = upgradeMiddleware
+    this._composedUpgradeMiddleware = compose(upgradeMiddleware)
 
-    const connectionMiddleware = []
-    this._connectionMiddleware = connectionMiddleware
-    this._composedConnectionMiddleware = compose(connectionMiddleware)
+    const messageMiddleware = []
+    this._messageMiddleware = messageMiddleware
+    this._composedMessageMiddleware = compose(messageMiddleware)
 
     const wsServer = new WebSocket.Server({
       noServer: true,
@@ -62,73 +64,56 @@ class Ws {
     })
 
     wsServer
-      .on('upgrade', async (req, res, head) => {
-        const ctx = await this.handleUpgrade(req, res, head)
+      .on('upgrade', async (req, socket, head, extensions) => {
+        const ctx = await this.handleUpgrade(req, socket, head, extensions)
 
-        _finishUpgradeHandling(ctx)
-
-        wsServer.completeUpgrade(req, res, head)
+        wsServer.completeUpgrade(req, socket, head, extensions, ctx.responseHeaders)
       })
       .on('connection', websocket => {
         websocket
           .on('message', message => {
-            this
-              .handleMessage(message, websocket)
-              .then(_finishMessageHandling)
-          })
-          .once('close', () => {
-            // hub.publish(token, {
-            //   address: request.connection.remoteAddress
-            // })
-            // hub.unsubscribe(token)
+            this.handleMessage(message, websocket)
           })
           .once('error', () => {
             // hub.publish(token, error.message)
             // hub.unsubscribe(token)
             websocket.terminate()
           })
-
-        // const token = hub.subscribe('/connect', data => {
-        //   if (websocket.readyState === WebSocket.OPEN) {
-        //     websocket.send(JSON.stringify({
-        //       kind: 'connect',
-        //       data
-        //     }))
-        //   }
-        // })
       })
 
     this._wss = wsServer
   }
 
-  use(middleware) {
-    const _middleware = this._middleware
-    _middleware.push(middleware)
-    this._composed = compose(_middleware)
+  use(fn) {
+    const upgradeMiddleware = this._connectionMiddleware
+    upgradeMiddleware.push(fn)
+    this._composedUpgradeMiddleware = compose(upgradeMiddleware)
     return this
   }
 
-  req(middleware) {
-    const connectionMiddleware = this._connectionMiddleware
-    connectionMiddleware.push(middleware)
-    this._composedConnectionMiddleware = compose(connectionMiddleware)
+  scope(fn) {
+    const _messageMiddleware = this._messageMiddleware
+    _messageMiddleware.push(fn)
+    this._composedMessageMiddleware = compose(_messageMiddleware)
     return this
   }
 
-  async handleUpgrade(request, response) {
+  async handleUpgrade(req, socket, head, extensions) {
     const ctx = createContext({
       _: {
-        request,
-        response
+        req,
+        socket,
+        head,
+        extensions
       }
     })
 
-    await this._composedConnectionMiddleware(ctx)
+    await this._composedUpgradeMiddleware(ctx)
 
-    return ctx
+    return _finishUpgradeHandling(ctx)
   }
 
-  handleMessage(message, websocket, request) {
+  async handleMessage(message, websocket, request) {
     const ctx = createContext({
       _: {
         message,
@@ -138,7 +123,9 @@ class Ws {
       }
     })
 
-    return this._composed(ctx).then(() => ctx)
+    await this._composedMessageMiddleware(ctx)
+
+    return _finishMessageHandling(ctx)
   }
 
   callback() {
