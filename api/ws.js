@@ -1,5 +1,5 @@
 const compose = require('koa-compose')
-const WebSocket = require('../../ws')
+const WebSocket = require('ws')
 const http = require('http')
 const createContext = require('./context')
 // const Hub = require('../../pubsub')
@@ -11,9 +11,9 @@ function _finishUpgradeHandling(ctx) {
 }
 
 function _finishMessageHandling(ctx) {
-  if (ctx.statusCode === DEFAULT_STATUS_CODE) {
-    ctx.websocket.close(ctx.statusCode, ctx.status)
-  }
+  // if (ctx.statusCode === DEFAULT_STATUS_CODE) {
+  //   ctx.websocket.close(ctx.statusCode, ctx.status)
+  // }
 
   return ctx
 }
@@ -31,8 +31,11 @@ class Ws {
     const wsServer = new WebSocket.Server({
       noServer: true,
       // default
-      verifyClient: null,
-      handleProtocols: () => null,
+      verifyClient: async (info, cb) => {
+        await this._composedUpgradeMiddleware()
+        cb(true)
+      },
+      handleProtocols: undefined,
       perMessageDeflate: {
         // See zlib defaults.
         zlibDeflateOptions: {
@@ -64,15 +67,10 @@ class Ws {
     })
 
     wsServer
-      .on('upgrade', async (req, socket, head, extensions) => {
-        const ctx = await this.handleUpgrade(req, socket, head, extensions)
-
-        wsServer.completeUpgrade(req, socket, head, extensions, ctx.responseHeaders)
-      })
-      .on('connection', websocket => {
-        websocket
+      .on('connection', ws => {
+        ws
           .on('message', message => {
-            this.handleMessage(message, websocket)
+            this.handleMessage(message, ws)
           })
           .once('error', () => {
             // hub.publish(token, error.message)
@@ -85,13 +83,6 @@ class Ws {
   }
 
   use(fn) {
-    const upgradeMiddleware = this._connectionMiddleware
-    upgradeMiddleware.push(fn)
-    this._composedUpgradeMiddleware = compose(upgradeMiddleware)
-    return this
-  }
-
-  scope(fn) {
     const _messageMiddleware = this._messageMiddleware
     _messageMiddleware.push(fn)
     this._composedMessageMiddleware = compose(_messageMiddleware)
@@ -129,12 +120,13 @@ class Ws {
   }
 
   callback() {
+    const wsServer = this._wss
     return (request, socket, head) => {
-      this._wss.handleUpgrade(request, socket, head)
+      wsServer.handleUpgrade(request, socket, head, ws => {
+        wsServer.emit('connection', ws, request)
+      })
     }
   }
-
-  listen() {}
 }
 
 module.exports = Ws

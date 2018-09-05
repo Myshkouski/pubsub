@@ -12,7 +12,7 @@ class Context {
   constructor(request, socket, head) {
     const ctx = this
 
-    Object.defineProperties(ctx. {
+    Object.defineProperties(ctx, {
       request: {
         get() {
           return request
@@ -52,7 +52,7 @@ class UpgradeContext extends Context {
 
     const ctx = this
 
-    Object.defineProperties(ctx. {
+    Object.defineProperties(ctx, {
 
     })
 
@@ -74,7 +74,7 @@ class MessageContext extends Context {
 
     const ctx = this
 
-    Object.defineProperties(ctx. {
+    Object.defineProperties(ctx, {
       message: {
         value: message
       }
