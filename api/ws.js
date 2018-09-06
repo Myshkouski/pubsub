@@ -4,14 +4,16 @@ const http = require('http')
 const createContext = require('./context')
 // const Hub = require('../../pubsub')
 
-const DEFAULT_STATUS_CODE = 1005
+const DEFAULT_UPGRADE_STATUS_CODE = 101
+const DEFAULT_WS_STATUS_CODE = 1005
 
 function _finishUpgradeHandling(ctx) {
   return ctx
 }
 
 function _finishMessageHandling(ctx) {
-  if (ctx.statusCode === DEFAULT_STATUS_CODE) {
+  console.log(ctx)
+  if (ctx.statusCode === DEFAULT_WS_STATUS_CODE) {
     ctx.websocket.close(ctx.statusCode, ctx.status)
   }
 
@@ -21,7 +23,7 @@ function _finishMessageHandling(ctx) {
 class Ws {
   constructor() {
     const upgradeMiddleware = []
-    this._connectionMiddleware = upgradeMiddleware
+    this._upgradeMiddleware = upgradeMiddleware
     this._composedUpgradeMiddleware = compose(upgradeMiddleware)
 
     const messageMiddleware = []
@@ -75,8 +77,6 @@ class Ws {
             this.handleMessage(message, websocket)
           })
           .once('error', () => {
-            // hub.publish(token, error.message)
-            // hub.unsubscribe(token)
             websocket.terminate()
           })
       })
@@ -84,14 +84,14 @@ class Ws {
     this._wss = wsServer
   }
 
-  use(fn) {
-    const upgradeMiddleware = this._connectionMiddleware
+  upgrade(fn) {
+    const upgradeMiddleware = this._upgradeMiddleware
     upgradeMiddleware.push(fn)
     this._composedUpgradeMiddleware = compose(upgradeMiddleware)
     return this
   }
 
-  scope(fn) {
+  messsage(fn) {
     const _messageMiddleware = this._messageMiddleware
     _messageMiddleware.push(fn)
     this._composedMessageMiddleware = compose(_messageMiddleware)
@@ -100,12 +100,11 @@ class Ws {
 
   async handleUpgrade(req, socket, head, extensions) {
     const ctx = createContext({
-      _: {
-        req,
-        socket,
-        head,
-        extensions
-      }
+      req,
+      socket,
+      head,
+      extensions,
+      statusCode: DEFAULT_UPGRADE_STATUS_CODE
     })
 
     await this._composedUpgradeMiddleware(ctx)
@@ -113,14 +112,12 @@ class Ws {
     return _finishUpgradeHandling(ctx)
   }
 
-  async handleMessage(message, websocket, request) {
+  async handleMessage(message, websocket, req) {
     const ctx = createContext({
-      _: {
-        message,
-        websocket,
-        request,
-        statusCode: DEFAULT_STATUS_CODE
-      }
+      message,
+      websocket,
+      req,
+      statusCode: DEFAULT_WS_STATUS_CODE
     })
 
     await this._composedMessageMiddleware(ctx)
@@ -129,12 +126,10 @@ class Ws {
   }
 
   callback() {
-    return (request, socket, head) => {
-      this._wss.handleUpgrade(request, socket, head)
+    return (req, socket, head) => {
+      this._wss.handleUpgrade(req, socket, head)
     }
   }
-
-  listen() {}
 }
 
 module.exports = Ws

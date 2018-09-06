@@ -1,117 +1,61 @@
-module.exports = createContext
+const util = require('util')
 
-const requestUpgradeProto = {
+const proto = {
+  request: {
+    get method() {
+      return this.req.method
+    },
 
-}
+    get url() {
+      return this.req.url
+    },
 
-function createUpgradeContext() {
-  const ctx = {}
-}
+    get headers() {
+      return this.req.headers
+    }
+  },
 
-class Context {
-  constructor(request, socket, head) {
-    const ctx = this
+  get method() {
+    return this.request.method
+  },
 
-    Object.defineProperties(ctx, {
-      request: {
-        get() {
-          return request
-        }
-      },
-      socket: {
-        get() {
-          return socket
-        }
-      },
-      head: {
-        get() {
-          return head
-        }
-      },
-      headers: {
-        get() {
-          return this.request.headers
-        }
-      },
-      responseHeaders: {
-        value: {}
-      }
-    })
+  get url() {
+    return this.request.url
+  },
 
-    Object.assign(ctx, {
-      get url() {
-        return this.request.url
-      }
-    })
+  get headers() {
+    return this.request.headers
+  },
+
+  toJSON() {
+    return {
+      request: this.request,
+      url: this.url,
+      headers: this.headers
+    }
+  },
+
+  toString() {
+    return JSON.stringify(this.toJSON())
+  },
+
+  inspect() {
+    return this.toJSON()
   }
 }
 
-class UpgradeContext extends Context {
-  constructor(request, socket, head) {
-    super(request, socket, head)
-
-    const ctx = this
-
-    Object.defineProperties(ctx, {
-
-    })
-
-    Object.assign(ctx, {
-      get url() {
-        return this.request.url
-      }
-    })
-  }
-
-  set(header, value) {
-    this.responseHeaders[header] = value
-  }
+if (util.inspect.custom) {
+  proto[util.inspect.custom] = proto.inspect
 }
 
-class MessageContext extends Context {
-  constructor(message, websocket, request, socket, head) {
-    super(request, socket, head)
-
-    const ctx = this
-
-    Object.defineProperties(ctx, {
-      message: {
-        value: message
-      }
-    })
-
-    Object.assign(ctx, {
-      get url() {
-        return this.request.url
-      }
-    })
-  }
-
-  set(header, value) {
-    this.responseHeaders[header] = value
-  }
-}
+const ownPropertyDescriptors = Object.getOwnPropertyDescriptors(proto)
 
 function createContext(src) {
-  const ctx = {}
+  const ctx = Object.assign({}, src)
 
-  Object.defineProperty(ctx, '_', {
-    value: Object.assign({}, src._ || {})
-  })
-
-  const obj = Object.assign({}, src)
-  if ('_' in obj) {
-    delete obj._
-  }
-  Object.assign(ctx, obj)
-
-  for (const nonEnumerableKey in ctx._) {
-    Object.defineProperty(ctx, nonEnumerableKey, {
-      get() {
-        return this._[nonEnumerableKey]
-      }
-    })
-  }
+  Object.defineProperties(ctx, ownPropertyDescriptors)
 
   return ctx
 }
+
+module.exports = createContext

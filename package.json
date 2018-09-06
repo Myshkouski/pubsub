@@ -9,6 +9,7 @@
     "nuxt": "nuxt"
   },
   "dependencies": {
+    "delegates": "^1.0.0",
     "koa": "^2.5.2",
     "koa-compose": "^4.1.0",
     "koa-compress": "^3.0.0",

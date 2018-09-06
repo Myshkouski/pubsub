@@ -11,80 +11,94 @@ div
 const connection = {}
 
 function reconnect() {
-  setTimeout(() => {
-    connect(connection.host)
-  }, 2000)
+	setTimeout(() => {
+		connect(connection.host)
+	}, 2000)
 }
 
 function connect(host, protocols) {
-  return new Promise(resolve => {
+	return new Promise(resolve => {
 		const ws = new WebSocket('ws://' + host, protocols)
 
-	  Object.assign(connection, {
-	    host,
-	    ws
-	  })
+		Object.assign(connection, {
+			host,
+			ws
+		})
 
-	  ws.addEventListener('open', event => {
-	    console.log('ws opened')
+		ws.addEventListener('open', event => {
+			console.log('ws opened')
 
-	    ws.addEventListener('error', event => {
-	      console.log('ws error', event)
-	      reconnect()
-	    })
+			ws.addEventListener('error', event => {
+				console.log('ws error', event)
+				reconnect()
+			})
 
-	    ws.addEventListener('close', event => {
-	      console.log('ws closed', event)
-	    })
+			ws.addEventListener('close', event => {
+				console.log('ws closed', event)
+			})
 
-	    ws.addEventListener('message', ({
-	      data
-	    }) => {
-	      try {
-	        data = JSON.parse(data)
+			ws.addEventListener('message', ({
+				data
+			}) => {
+				try {
+					data = JSON.parse(data)
 
-	        if (data.kind == 'online') {
-	          this.online = data.online
-	        }
-	      } catch (error) {
-	        console.error(error)
-	      }
-	    })
+					if (data.kind == 'online') {
+						this.online = data.online
+					}
+				} catch (error) {
+					console.error(error)
+				}
+			})
 
 			resolve(ws)
-	  })
+		})
 	})
 }
 
 export default {
-  data() {
-    return {
-      nickname: 'nickname',
-      online: []
-    }
-  },
+	data() {
+		return {
+			nickname: 'nickname',
+			online: []
+		}
+	},
 
-  watch: {
-    nickname(update) {
-      this.syncName(update)
-    }
-  },
+	head() {
+		return {
+			meta: [
+				{
+	        charset: 'utf-8'
+	      },
+	      {
+	        name: 'viewport',
+	        content: 'width=device-width, initial-scale=1'
+	      }
+			]
+		}
+	},
 
-  methods: {
-    syncName(name) {
-      connection.ws.send(JSON.stringify({
-        scope: '/name/' + this.nickname,
-      }))
-    }
-  },
+	watch: {
+		nickname(update) {
+			this.syncName(update)
+		}
+	},
 
-  async mounted() {
-    const ws = await connect(window.location.hostname + ':8080', ['json', 'msgpack'])
+	methods: {
+		syncName(name) {
+			connection.ws.send(JSON.stringify({
+				scope: '/name/' + this.nickname,
+			}))
+		}
+	},
+
+	async mounted() {
+		const ws = await connect(window.location.hostname + ':8080', ['json', 'msgpack'])
 
 		this.syncName(this.nickname)
 		connection.ws.send(JSON.stringify({
 			scope: '/tick'
 		}))
-  }
+	}
 }
 </script>

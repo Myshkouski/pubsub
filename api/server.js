@@ -1,7 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const http = require('http')
-const debug = require('debug')('http')
+const debug = require('debug')('ws-app')
 
 const Koa = require('koa')
 const KoaRouter = require('koa-router')
@@ -48,7 +48,7 @@ const ticker = setInterval(() => {
 }, 1000)
 
 wsRouter
-  .scope('/tick', ctx => {
+  .messsage('/tick', ctx => {
     ctx.send({
       scope: ctx.originalScope,
       status: 'ok'
@@ -65,7 +65,7 @@ wsRouter
       hub.unsubscribe(token)
     })
   })
-  .scope('/name/:nick', ctx => {
+  .messsage('/name/:nick', ctx => {
     ctx.send({
       scope: ctx.originalScope,
       params: ctx.params,
@@ -73,11 +73,10 @@ wsRouter
     })
   })
 
-ws
-  .use((ctx, next) => {
-    ctx.statusCode = 101
-    next()
-  })
+ws.upgrade((ctx, next) => {
+  debug('context', ctx)
+  next()
+})
 // .use(require('./parseMessage')())
 // .use(wsRouter.middleware())
 
