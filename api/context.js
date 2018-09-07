@@ -1,20 +1,6 @@
 const util = require('util')
 
 const proto = {
-  request: {
-    get method() {
-      return this.req.method
-    },
-
-    get url() {
-      return this.req.url
-    },
-
-    get headers() {
-      return this.req.headers
-    }
-  },
-
   get method() {
     return this.request.method
   },
@@ -33,25 +19,35 @@ const proto = {
       url: this.url,
       headers: this.headers
     }
-  },
-
-  toString() {
-    return JSON.stringify(this.toJSON())
-  },
-
-  inspect() {
-    return this.toJSON()
   }
 }
 
 if (util.inspect.custom) {
-  proto[util.inspect.custom] = proto.inspect
+  proto[util.inspect.custom] = function inspect() {
+    return this.toJSON()
+  }
 }
 
 const ownPropertyDescriptors = Object.getOwnPropertyDescriptors(proto)
 
 function createContext(src) {
-  const ctx = Object.assign({}, src)
+  const request = {
+    get method() {
+      return src.req.method
+    },
+
+    get url() {
+      return src.req.url
+    },
+
+    get headers() {
+      return src.req.headers
+    }
+  }
+
+  const ctx = Object.assign({
+    request
+  }, src)
 
   Object.defineProperties(ctx, ownPropertyDescriptors)
 

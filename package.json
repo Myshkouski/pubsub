@@ -25,6 +25,8 @@
   "devDependencies": {
     "cross-env": "^5.2.0",
     "debug": "^3.1.0",
+    "eslint": "^5.5.0",
+    "eslint-plugin-json": "^1.2.1",
     "pug": "^2.0.3",
     "supervisor": "^0.12.0"
   },

@@ -1,73 +1,104 @@
 const pathToRegexp = require('path-to-regexp')
 const normalizePath = require('normalize-path')
 const compose = require('koa-compose')
+const debug = require('debug')('ws-router')
 const createContext = require('./context')
 
-class WebsocketRouter {
-  constructor() {
-    this._middleware = []
+function isMatch(scope, re) {
+  if(re) {
+    return re.exec(scope)
   }
 
-  messsage() {
-    let path = '(.*)'
-    let middleware = arguments[0]
+  return true
+}
+
+class WebsocketRouter {
+  constructor(options = {}) {
+    const middleware = []
+    this._middleware = middleware
+    this._composedMiddleware = compose(middleware)
+  }
+
+  message() {
+    let path, re, keys, toPath
+    let fn = arguments[0]
 
     if (1 in arguments) {
-      path = middleware
-      middleware = arguments[1]
+      path = fn
+      fn = arguments[1]
+
+      // path = normalizePath(path)
+
+      toPath = pathToRegexp.compile(path)
+      keys = []
+      re = pathToRegexp(path, keys, {
+        end: false
+      })
     }
 
-    path = normalizePath(path)
+    this._middleware.push(function(ctx, next) {
+      let {
+        scope
+      } = ctx
 
-    const toPath = pathToRegexp.compile(path)
-    const keys = []
-    const re = pathToRegexp(path, keys, {
-      end: false
-    })
+      if(scope) {
+        // scope = normalizePath(ctx.scope)
 
-    this._middleware.push((ctx, next) => {
-      if (typeof ctx.scope !== 'string') {
-        return next()
+        if(!('originalScope' in ctx)) {
+          ctx.originalScope = scope
+        }
       }
 
-      let scope = normalizePath(ctx.scope)
-      let match = re.exec(scope)
+      let shouldHandle = true
+      let match
 
-      if (match) {
-        const _ctx = createContext(ctx)
-        match = match.slice(1)
+      if (re && scope) {
+        match = isMatch(scope, re)
 
-        const params = {}
+        if(!match) {
+          shouldHandle = false
+        } else {
+          ctx = createContext(ctx)
+          match = match.slice(1)
 
-        if (keys.length) {
-          for (const index in keys) {
-            const {
-              name
-            } = keys[index]
+          const params = {}
 
-            params[name] = match[index]
+          if (keys && keys.length) {
+            for (const index in keys) {
+              const {
+                name
+              } = keys[index]
+
+              params[name] = match[index]
+            }
+
+            ctx.params = Object.assign(ctx.params || {}, params)
           }
 
-          _ctx.params = Object.assign(_ctx.params || {}, params)
+          if(toPath) {
+            scope = scope.slice(toPath(params).length)
+          }
+
+          ctx.scope = scope.length ? scope : '/'
         }
-
-        scope = scope.slice(toPath(params).length)
-
-        _ctx.scope = scope.length ? scope : '/'
-
-        const res = middleware(_ctx, next)
-
-        return res
-      } else {
-        return next()
       }
+
+      if (shouldHandle) {
+        return fn(ctx, next)
+      }
+
+      return next()
     })
+
+    this._composedMiddleware = compose(this._middleware)
+
+    debug('defined scope', path || '(.*)')
 
     return this
   }
 
   middleware() {
-    return compose(this._middleware)
+    return this._composedMiddleware.bind(this)
   }
 }
 

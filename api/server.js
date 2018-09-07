@@ -1,7 +1,6 @@
 const fs = require('fs')
 const path = require('path')
 const http = require('http')
-const debug = require('debug')('ws-app')
 
 const Koa = require('koa')
 const KoaRouter = require('koa-router')
@@ -31,9 +30,9 @@ app
   .use(httpRouter.routes())
   .use(httpRouter.allowedMethods())
 
-const Ws = require('./ws')
+const WsApp = require('./ws')
 const WsRouter = require('./wsRouter')
-const ws = new Ws()
+const wsApp = new WsApp()
 const wsRouter = new WsRouter()
 
 const Hub = require('../')
@@ -43,12 +42,13 @@ const hub = new Hub({
 
 hub.create('/tick')
 
-const ticker = setInterval(() => {
+setInterval(() => {
   hub.publish('/tick', Date.now())
-}, 1000)
+}, 1000).unref()
 
 wsRouter
-  .messsage('/tick', ctx => {
+  .message(require('./parseMessage')())
+  .message('/tick', ctx => {
     ctx.send({
       scope: ctx.originalScope,
       status: 'ok'
@@ -65,7 +65,7 @@ wsRouter
       hub.unsubscribe(token)
     })
   })
-  .messsage('/name/:nick', ctx => {
+  .message('/name/:nick', ctx => {
     ctx.send({
       scope: ctx.originalScope,
       params: ctx.params,
@@ -73,16 +73,11 @@ wsRouter
     })
   })
 
-ws.upgrade((ctx, next) => {
-  debug('context', ctx)
-  next()
-})
-// .use(require('./parseMessage')())
-// .use(wsRouter.middleware())
+wsApp.message(wsRouter.middleware())
 
 const server = http.createServer()
 
 server.on('request', app.callback())
-server.on('upgrade', ws.callback())
+server.on('upgrade', wsApp.callback())
 
 server.listen(8080)

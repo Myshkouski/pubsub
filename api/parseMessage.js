@@ -1,30 +1,44 @@
-module.exports = function() {
-  return (ctx, next) => {
-    const {
-      scope,
-      payload
-    } = JSON.parse(ctx.message)
+const debug = require('debug')('parse-message')
 
-    Object.assign(ctx, {
-      scope,
-      originalScope: scope,
-      payload
-    })
+function deserialize(ctx, next) {
+  let {
+    message
+  } = ctx
 
-    function send(message) {
-      if(typeof message == 'object') {
-        message = JSON.stringify(message)
-      }
+  const rawMessage = message
 
-      ctx.statusCode = 1000
-      ctx.websocket.send(message)
+  const typeOfMessage = typeof message
+
+  if(typeOfMessage !== 'object') {
+    if(Buffer.isBuffer(message)) {
+      message = message.toString()
+    } else if(typeOfMessage !== 'string') {
+      throw new TypeError('Cannot parse message of type "' + typeOfMessage + '"')
     }
+  }
 
-    ctx._.send = send
-    Object.defineProperty(ctx, 'send', {
-      value: send
-    })
+  const {
+    scope,
+    payload
+  } = JSON.parse(message)
 
-    next()
+  message = {
+    scope,
+    payload
+  }
+
+  ctx.scope = scope
+  ctx.payload = payload
+
+  debug('scope', scope)
+  debug('payload', '' + payload)
+
+  next()
+}
+
+module.exports = () => {
+  return function(ctx, next) {
+    ctx.deserialize = deserialize
+    return deserialize(ctx, next)
   }
 }
