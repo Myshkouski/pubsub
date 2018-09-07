@@ -14,45 +14,45 @@ const DEFAULT_OPTIONS = {
   handleProtocols: undefined,
   perMessageDeflate: {
     zlibDeflateOptions: {
-      // chunkSize: 1024,
-      // memLevel: 7,
-      // level: 3,
+      chunkSize: 1024,
+      memLevel: 7,
+      level: 3,
     },
     zlibInflateOptions: {
-      // chunkSize: 10 * 1024
+      chunkSize: 10 * 1024
     },
 
     // Other options settable:
     // Defaults to negotiated value.
-    // clientNoContextTakeover: true,
+    clientNoContextTakeover: true,
     // Defaults to negotiated value.
-    // serverNoContextTakeover: true,
+    serverNoContextTakeover: true,
     // Defaults to negotiated value.
-    // clientMaxWindowBits: 10,
+    clientMaxWindowBits: 10,
     // Defaults to negotiated value.
-    // serverMaxWindowBits: 10,
+    serverMaxWindowBits: 10,
 
     // Below options specified as default values.
     // Limits zlib concurrency for perf.
-    // concurrencyLimit: 10,
+    concurrencyLimit: 10,
     // Size (in bytes) below which messages
     // should not be compressed.
-    // threshold: 1024,
+    threshold: 1024,
   }
 }
 
 function serialize(message) {
-  if(Buffer.isBuffer(message)) {
+  if (Buffer.isBuffer(message)) {
     return message
   }
 
   const typeOfMessage = typeof message
 
-  if(typeOfMessage === 'string') {
+  if (typeOfMessage === 'string') {
     return message
   }
 
-  if(typeOfMessage === 'object') {
+  if (typeOfMessage === 'object') {
     return JSON.stringify(message)
   }
 
@@ -99,6 +99,10 @@ async function _handleMessage(websocket, req, socket, head, extensions, headers,
   return ctx
 }
 
+function _handleError(websocket) {
+  websocket.terminate()
+}
+
 class WsApp {
   constructor(options = {}) {
     const upgradeMiddleware = []
@@ -117,16 +121,14 @@ class WsApp {
       .on('connection', (ws, req, socket, head, extensions, headers) => {
         ws
           .on('message', _handleMessage.bind(this, ws, req, socket, head, extensions, headers))
-          .once('error', () => {
-            websocket.terminate()
-          })
+          .once('error', _handleError.bind(this, websocket))
       })
 
     this._wss = wsServer
   }
 
   upgrade(fn) {
-    if(this._isUpgradeMiddlewareUsed) {
+    if (this._isUpgradeMiddlewareUsed) {
       throw new Error('Upgrade middleware should be used before message middlewares')
     }
 
@@ -134,7 +136,7 @@ class WsApp {
     upgradeMiddleware.push(fn.bind(this))
     this._composedUpgradeMiddleware = compose(upgradeMiddleware)
 
-    debug('upgrade')
+    debug('pushed upgrade middleware')
 
     return this
   }
@@ -146,7 +148,7 @@ class WsApp {
     _messageMiddleware.push(fn.bind(this))
     this._composedMessageMiddleware = compose(_messageMiddleware)
 
-    debug('message')
+    debug('pushed message middleware')
 
     return this
   }
