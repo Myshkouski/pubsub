@@ -9,35 +9,29 @@ function deserialize(ctx, next) {
 
   const typeOfMessage = typeof message
 
-  if(typeOfMessage !== 'object') {
-    if(Buffer.isBuffer(message)) {
+  let scope, payload
+
+  if (typeOfMessage !== 'object') {
+    if (Buffer.isBuffer(message)) {
       message = message.toString()
-    } else if(typeOfMessage !== 'string') {
+    } else if (typeOfMessage !== 'string') {
       throw new TypeError('Cannot parse message of type "' + typeOfMessage + '"')
     }
+
+    message = JSON.parse(message)
   }
 
-  const {
-    scope,
-    payload
-  } = JSON.parse(message)
+  ctx.scope = message.scope
+  ctx.payload = message.payload
 
-  message = {
-    scope,
-    payload
-  }
+  debug('scope', ctx.scope)
+  debug('payload', '' + ctx.payload)
 
-  ctx.scope = scope
-  ctx.payload = payload
-
-  debug('scope', scope)
-  debug('payload', '' + payload)
-
-  next()
+  return next()
 }
 
 module.exports = () => {
-  return function(ctx, next) {
+  return function (ctx, next) {
     ctx.deserialize = deserialize
     return deserialize(ctx, next)
   }

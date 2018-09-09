@@ -6,12 +6,9 @@ const debug = require('debug')('ws-app')
 // const Hub = require('../../pubsub')
 
 const DEFAULT_UPGRADE_STATUS_CODE = 101
-const DEFAULT_WS_STATUS_CODE = 1008
+const DEFAULT_WS_CLOSE_CODE = 1008
 
 const DEFAULT_OPTIONS = {
-  noServer: true,
-  verifyClient: undefined,
-  handleProtocols: undefined,
   perMessageDeflate: {
     zlibDeflateOptions: {
       chunkSize: 1024,
@@ -39,6 +36,10 @@ const DEFAULT_OPTIONS = {
     // should not be compressed.
     threshold: 1024,
   }
+}
+
+const FORCED_OPTIONS = {
+  noServer: true
 }
 
 function serialize(message) {
@@ -82,11 +83,20 @@ async function _handleMessage(websocket, req, socket, head, extensions, headers,
     message,
     websocket,
     req,
-    statusCode: DEFAULT_WS_STATUS_CODE,
+    statusCode: DEFAULT_WS_CLOSE_CODE,
     serialize,
     send(message) {
       message = this.serialize(message)
       websocket.send(message)
+    },
+    publish(message) {
+      message = this.serialize(message)
+
+      for (let websocket of this.app._wss.clients) {
+        if (websocket !== this.websocket) {
+          websocket.send(message)
+        }
+      }
     }
   })
 
@@ -99,7 +109,8 @@ async function _handleMessage(websocket, req, socket, head, extensions, headers,
   return ctx
 }
 
-function _handleError(websocket) {
+function _handleError(websocket, error) {
+  console.error(error)
   websocket.terminate()
 }
 
@@ -114,14 +125,18 @@ class WsApp {
     this._messageMiddleware = messageMiddleware
     this._composedMessageMiddleware = compose(messageMiddleware)
 
-    const wsServer = new WebSocket.Server(Object.assign({}, DEFAULT_OPTIONS, options))
+    const broadcastMiddleware = []
+    this._broadcastMiddleware = broadcastMiddleware
+    this._composedBroadcastMiddleware = compose(broadcastMiddleware)
+
+    const wsServer = new WebSocket.Server(Object.assign({}, DEFAULT_OPTIONS, options, FORCED_OPTIONS))
 
     wsServer
       .on('upgrade', _handleUpgrade.bind(this))
-      .on('connection', (ws, req, socket, head, extensions, headers) => {
-        ws
-          .on('message', _handleMessage.bind(this, ws, req, socket, head, extensions, headers))
-          .once('error', _handleError.bind(this, websocket))
+      .on('connection', (websocket, req, socket, head, extensions, headers) => {
+        websocket
+          .on('message', _handleMessage.bind(this, websocket, req, socket, head, extensions, headers))
+          .once('error', _handleError.bind(websocket))
       })
 
     this._wss = wsServer
@@ -136,7 +151,7 @@ class WsApp {
     upgradeMiddleware.push(fn.bind(this))
     this._composedUpgradeMiddleware = compose(upgradeMiddleware)
 
-    debug('pushed upgrade middleware')
+    debug('defined upgrade middleware')
 
     return this
   }
@@ -148,14 +163,42 @@ class WsApp {
     _messageMiddleware.push(fn.bind(this))
     this._composedMessageMiddleware = compose(_messageMiddleware)
 
-    debug('pushed message middleware')
+    debug('defined message middleware')
 
     return this
   }
 
+  broadcast(fn) {
+    const _broadcastMiddleware = this._broadcastMiddleware
+    _broadcastMiddleware.push(fn.bind(this))
+    this._composedBroadcastMiddleware = compose(_broadcastMiddleware)
+
+    debug('defined broadcast middleware')
+
+    return this
+  }
+
+  async publish(message) {
+    const ctx = createContext({
+      // dummy req
+      req: {},
+      app: this,
+      message,
+      serialize,
+      publish(message) {
+        message = this.serialize(message)
+        for (const websocket of this.app._wss.clients) {
+          websocket.send(message)
+        }
+      }
+    })
+
+    return await this._composedBroadcastMiddleware(ctx)
+  }
+
   callback() {
     // no callback passed to ws server, instead it emits 'upgrade' event
-    return this._wss.handleUpgrade.bind(this._wss)
+    return (req, socket, head) => this._wss.handleUpgrade(req, socket, head /*, cb*/ )
   }
 }
 
