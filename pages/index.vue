@@ -158,7 +158,8 @@ export default {
     const ws = await connect.call(this, window.location.hostname + ':8080', ['json', 'msgpack'])
 
     const data = {
-      scope: '/name/hello'
+      scope: '/subscribe',
+			payload: 'me please'
     }
 
     ws.send(JSON.stringify(data))

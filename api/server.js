@@ -34,79 +34,82 @@ app
 
 const WsApp = require('./ws-app')
 const WsRouter = require('./ws-router')
-const wsApp = new WsApp()
+const WsFramework = require('./ws-framework')
 
-const Hub = require('../')
-const hub = new Hub({
-  separator: '/'
-})
-
-hub.create('/tick')
-
-setInterval(() => {
-  wsApp.publish({
-    scope: '/tick',
-    payload: Date.now()
-  })
-}, 1000).unref()
-
-const wsMessageRouter = new WsRouter()
-wsMessageRouter
-  .message(parseMessage())
-  // .message('/tick', ctx => {
-  //   ctx.send({
-  //     scope: ctx.originalScope,
-  //     status: 'ok'
-  //   })
-  //
-  //   const token = hub.subscribe('/tick', data => {
-  //     ctx.send({
-  //       scope: ctx.originalScope,
-  //       payload: data
-  //     })
-  //   })
-  //
-  //   ctx.websocket.once('close', () => {
-  //     hub.unsubscribe(token)
-  //   })
-  // })
-  .message('/name/:nick', ctx => {
-    ctx.send({
-      scope: ctx.scope,
-      originalScope: ctx.originalScope,
-      params: ctx.params,
-      payload: 'Hello, ' + ctx.params.nick + '!'
-    })
-  })
-// .use('/:nick', (new WsRouter).message('/:nick', ctx => {
-//   ctx.send({
-//     scope: ctx.scope,
-//     originalScope: ctx.originalScope,
-//     params: ctx.params,
-//     payload: 'Hello, ' + ctx.params.nick + '!'
+// const Hub = require('../')
+// const hub = new Hub({
+//   separator: '/'
+// })
+//
+// hub.create('/tick')
+//
+// setInterval(() => {
+//   wsApp.publish({
+//     scope: '/tick',
+//     payload: Date.now()
 //   })
-// }).middleware())
+// }, 1000).unref()
+//
+// const wsMessageRouter = new WsRouter()
+// wsMessageRouter
+//   .message(parseMessage())
+//   .message('/tick', ctx => {
+//     ctx.send({
+//       scope: ctx.originalScope,
+//       status: 'ok'
+//     })
+//
+//     const token = hub.subscribe('/tick', data => {
+//       ctx.send({
+//         scope: ctx.originalScope,
+//         payload: data
+//       })
+//     })
+//
+//     ctx.websocket.once('close', () => {
+//       hub.unsubscribe(token)
+//     })
+//   })
+//   .message('/name/:nick', ctx => {
+//     ctx.send({
+//       scope: ctx.scope,
+//       originalScope: ctx.originalScope,
+//       params: ctx.params,
+//       payload: 'Hello, ' + ctx.params.nick + '!'
+//     })
+//   })
+//
+// const wsPublishRouter = new WsRouter()
+// wsPublishRouter
+//   .message((ctx, next) => {
+//     if(ctx.app.connected.size) {
+//       return next()
+//     }
+//   })
+//   .message(parseMessage())
+//   .message('/tick', ctx => {
+//     const {
+//       scope,
+//       originalScope,
+//       payload
+//     } = ctx
+//
+//     ctx.publish({
+//       scope,
+//       originalScope,
+//       payload
+//     })
+//   })
+//
+// wsApp
+//   .message(wsMessageRouter.middleware())
+//   .broadcast(wsPublishRouter.middleware())
 
-const wsPublishRouter = new WsRouter()
-wsPublishRouter
-  .message(parseMessage())
-  .message('/tick', ctx => {
-    const {
-      scope,
-      originalScope,
-      payload
-    } = ctx
+const wsApp = new WsFramework()
 
-    ctx.publish({
-      scope,
-      originalScope,
-      payload
-    })
-  })
-
-wsApp
-  .message(wsMessageRouter.middleware())
-  .broadcast(wsPublishRouter.middleware())
+wsApp.message(ctx => {
+  console.log(ctx.app.hub)
+})
 
 const server = http.createServer()
 

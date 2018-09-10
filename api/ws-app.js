@@ -142,6 +142,10 @@ class WsApp {
     this._wss = wsServer
   }
 
+  get connected() {
+    return this._wss.clients
+  }
+
   upgrade(fn) {
     if (this._isUpgradeMiddlewareUsed) {
       throw new Error('Upgrade middleware should be used before message middlewares')

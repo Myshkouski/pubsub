@@ -4,26 +4,8 @@ const compose = require('koa-compose')
 const debug = require('debug')('ws-router')
 const createContext = require('./context')
 
-function _attachMiddleware(fn, end) {
-  let path, re, keys, toPath
-
-  if (2 in arguments) {
-    path = fn
-    fn = end
-    end = arguments[2]
-  }
-
-  if (path) {
-    // path = normalizePath(path)
-
-    toPath = pathToRegexp.compile(path)
-    keys = []
-    re = pathToRegexp(path, keys, {
-      end
-    })
-  }
-
-  this._middleware.push(function (ctx, next) {
+function createMiddleware(fn, re, end, keys, toPath) {
+  return function (ctx, next) {
     let shouldHandle = true
 
     let {
@@ -34,7 +16,7 @@ function _attachMiddleware(fn, end) {
       // scope = normalizePath(ctx.scope)
 
       if (!('originalScope' in ctx)) {
-        ctx.originalScope = ctx.scope
+        ctx.originalScope = scope
       }
 
       if (re) {
@@ -76,11 +58,33 @@ function _attachMiddleware(fn, end) {
     }
 
     return next()
-  })
+  }
+}
+
+function _attachMiddleware(fn, end) {
+  let path, re, keys, toPath
+
+  if (2 in arguments) {
+    path = fn
+    fn = end
+    end = arguments[2]
+  }
+
+  if (path) {
+    // path = normalizePath(path)
+
+    toPath = pathToRegexp.compile(path)
+    keys = []
+    re = pathToRegexp(path, keys, {
+      end
+    })
+  }
+
+  this._middleware.push(createMiddleware(fn, re, end, keys, toPath))
 
   this._composedMiddleware = compose(this._middleware)
 
-  debug('defined scope', path)
+  debug('defined scope', path || '(.*)')
 
   return this
 }
@@ -101,6 +105,11 @@ class WebsocketRouter {
   }
 
   scope(path) {
+    const typeOfPath = typeof path
+    if(typeOfPath !== 'string') {
+      throw new TypeError('First arguments should be a string, passed "' + typeOfPath + '"')
+    }
+
     const router = new this.constructor()
     this.use(path, router.middleware())
     return router
