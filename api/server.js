@@ -21,6 +21,9 @@ const app = new Koa()
 
 const httpRouter = new KoaRouter()
 httpRouter
+  .get('/favicon(.ico)?', ctx => {
+    serve(ctx, path.join(__static, 'favicon.ico'))
+  })
   .get('/_nuxt/*', ctx => {
     serve(ctx, path.join(__static, ctx.url))
   })
@@ -107,9 +110,11 @@ const WsFramework = require('./ws-framework')
 
 const wsApp = new WsFramework()
 
-wsApp.message(ctx => {
-  console.log(ctx.app.hub)
-})
+wsApp.hub.create('tick')
+
+setInterval(() => {
+  wsApp.hub.publish(['tick'], Date.now())
+}, 1000).unref()
 
 const server = http.createServer()
 

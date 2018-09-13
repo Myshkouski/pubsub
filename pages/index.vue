@@ -130,6 +130,7 @@ function connect(host, protocols) {
 export default {
   data() {
     return {
+			ws: null,
       messageHistory: [],
       historyLength: 20
     }
@@ -140,6 +141,29 @@ export default {
       this.messageHistory = this.messageHistory.slice(-value)
     }
   },
+
+	methods: {
+		subscribe(channel) {
+			this.send({
+				scope: '/subscribe/' + channel
+			})
+		},
+
+		unsubscribe(channel) {
+			this.send({
+				scope: '/unsubscribe/' + channel
+			})
+		},
+
+		send(data) {
+			this.ws.send(JSON.stringify(data))
+
+			this.messageHistory.push({
+	      type: '\u25B4',
+	      data
+	    })
+		}
+	},
 
   head() {
     return {
@@ -155,18 +179,15 @@ export default {
   },
 
   async mounted() {
-    const ws = await connect.call(this, window.location.hostname + ':8080', ['json', 'msgpack'])
+		this.ws = await connect.call(this, window.location.hostname + ':8080', ['json'])
 
-    const data = {
-      scope: '/subscribe',
-			payload: 'me please'
-    }
+		this.subscribe('tick')
+		this.subscribe('tick')
 
-    ws.send(JSON.stringify(data))
-    this.messageHistory.push({
-      type: '\u25B4',
-      data
-    })
+		setTimeout(() => {
+			this.unsubscribe('tick')
+			this.unsubscribe('tick')
+		}, 2000)
   }
 }
 </script>

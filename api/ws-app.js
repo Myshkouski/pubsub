@@ -83,6 +83,7 @@ async function _handleMessage(websocket, req, socket, head, extensions, headers,
     message,
     websocket,
     req,
+    socket,
     statusCode: DEFAULT_WS_CLOSE_CODE,
     serialize,
     send(message) {

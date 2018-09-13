@@ -50,6 +50,10 @@ class Token {
     this._subscriber = subscriber
   }
 
+  get channel() {
+    return this._channelName
+  }
+
   broadcast(...args) {
     this._hub.broadcast(this, ...args)
   }
@@ -60,6 +64,10 @@ class Token {
 }
 
 class Hub {
+  static normalizeName() {
+    return _normalizeChannelName.apply(this, arguments)
+  }
+
   constructor(options = {}) {
     var hub = this
 

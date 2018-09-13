@@ -1,71 +1,100 @@
 const debug = require('debug')('ws-framework')
 const WsApp = require('./ws-app')
 const WsRouter = require('./ws-router')
+const Hub = require('../')
 
 async function onSubscribe(ctx, next) {
   await next()
 
-  const channel = ctx.scope
+  const channel = Hub.normalizeName(ctx.params.channel)
 
-  function subscriber(payload) {
-    ctx.send({
-      scope: channel,
-      payload
-    })
+  const subscriptions = ctx.app.subscriptions.get(ctx.socket)
+
+  const message = {
+    scope: ctx.originalScope,
+    payload: false
   }
 
-  const token = ctx.app.hub.subscribe(ctx.scope, subscriber)
+  if(!subscriptions.has(channel)) {
+    const token = ctx.app.hub.subscribe(channel, function subscriber(payload) {
+      ctx.send({
+        scope: '/message/' + channel,
+        payload
+      })
+    })
 
-  ctx.app.subscriptions
-    .get(ctx.socket)
-    .add(token)
+    subscriptions.set(token.channel, token)
 
-  ctx.websocket.once('close', () => {
-    token.unsubscribe()
-  })
+    message.payload = true
+  }
+
+  ctx.send(message)
 }
 
 async function onUnsubscribe(ctx, next) {
   await next()
 
-  debug('onUnsubscribe')
+  const channel = Hub.normalizeName(ctx.params.channel)
+
+  const subscriptions = ctx.app.subscriptions.get(ctx.socket)
+
+  const message = {
+    scope: ctx.originalScope,
+    payload: false
+  }
+
+  if(subscriptions.has(channel)) {
+    const token = subscriptions.get(channel)
+
+    token.unsubscribe()
+
+    subscriptions.delete(channel)
+
+    message.payload = true
+  }
+
+  ctx.send(message)
 }
 
-function Factory() {
-  const app = new WsApp()
-  const router = new WsRouter()
-  const Hub = require('../')
+class Framework extends WsApp {
+  constructor(options) {
+    super(options)
 
-  app
-    .upgrade(async (ctx, next) => {
-      await next()
+    const app = this
+    const router = new WsRouter()
 
-      if(!ctx.app.subscriptions.has(ctx.websocket)) {
-        ctx.app.subscriptions.set(ctx.socket, new Set())
+    app
+      .upgrade(async (ctx, next) => {
+        await next()
 
-        ctx.socket.once('close', () => {
-          ctx.app.subscriptions.delete(ctx.socket)
-          debug('remove subscription due to socket closed')
-        })
-      }
+        if(!ctx.app.subscriptions.has(ctx.socket)) {
+          ctx.app.subscriptions.set(ctx.socket, new Map())
 
-      console.log('!', ctx.app.subscriptions)
+          ctx.socket.once('close', () => {
+            const subscriptions = ctx.app.subscriptions.get(ctx.socket)
+
+            for(const token of subscriptions.values()) {
+              token.unsubscribe()
+            }
+
+            ctx.app.subscriptions.delete(ctx.socket)
+          })
+        }
+      })
+      .message(router.middleware())
+
+    router
+      .message(require('./parse-message-json')())
+      .message('/subscribe/:channel', onSubscribe)
+      .message('/unsubscribe/:channel', onUnsubscribe)
+
+    const hub = new Hub({
+      separator: '/'
     })
-    .message(router.middleware())
 
-  router
-    .message(require('./parse-message-json')())
-    .message('/subscribe', onSubscribe)
-    .message('/unsubscribe', onUnsubscribe)
-
-  const hub = new Hub({
-    separator: '/'
-  })
-
-  app.hub = hub
-  app.subscriptions = new Map()
-
-  return app
+    app.hub = hub
+    app.subscriptions = new Map()
+  }
 }
 
-module.exports = Factory
+module.exports = Framework
