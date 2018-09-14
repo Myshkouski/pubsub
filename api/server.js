@@ -13,6 +13,7 @@ const parseMessage = require('./parse-message-json')
 const __static = path.resolve(process.cwd(), 'dist')
 
 function serve(ctx, pathname) {
+  pathname = path.join(__static, pathname)
   ctx.type = mime.getType(pathname)
   ctx.body = fs.createReadStream(pathname)
 }
@@ -22,13 +23,13 @@ const app = new Koa()
 const httpRouter = new KoaRouter()
 httpRouter
   .get('/favicon(.ico)?', ctx => {
-    serve(ctx, path.join(__static, 'favicon.ico'))
+    serve(ctx, 'favicon.ico')
   })
   .get('/_nuxt/*', ctx => {
-    serve(ctx, path.join(__static, ctx.url))
+    serve(ctx, ctx.url)
   })
   .get('/*', ctx => {
-    serve(ctx, path.join(__static, ctx.url, 'index.html'))
+    serve(ctx, ctx.url + '/index.html')
   })
 
 app
