@@ -113,6 +113,8 @@ const wsApp = new WsFramework()
 
 wsApp.hub.create('tick')
 
+wsApp.on('hello', console.log)
+
 setInterval(() => {
   wsApp.hub.publish(['tick'], Date.now())
 }, 1000).unref()

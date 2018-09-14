@@ -1,3 +1,4 @@
+const EventEmitter = require('events')
 const debug = require('debug')('ws-framework')
 const WsApp = require('./ws-app')
 const WsRouter = require('./ws-router')
@@ -56,12 +57,21 @@ async function onUnsubscribe(ctx, next) {
   ctx.send(message)
 }
 
-class Framework extends WsApp {
-  constructor(options) {
-    super(options)
+async function onMessage(ctx, next) {
+  await next()
 
-    const app = this
+  ctx.emit(ctx.params.channel, ctx)
+}
+
+class Framework extends EventEmitter {
+  constructor() {
+    super()
+
+    const app = new WsApp()
+    this._app = app
+
     const router = new WsRouter()
+    this._router = router
 
     app
       .upgrade(async (ctx, next) => {
@@ -85,8 +95,13 @@ class Framework extends WsApp {
 
     router
       .message(require('./parse-message-json')())
+      .message((ctx, next) => {
+        ctx.emit = this.emit.bind(this)
+        next()
+      })
       .message('/subscribe/:channel', onSubscribe)
       .message('/unsubscribe/:channel', onUnsubscribe)
+      .message('/message/:channel', onMessage)
 
     const hub = new Hub({
       separator: '/'
@@ -94,6 +109,14 @@ class Framework extends WsApp {
 
     app.hub = hub
     app.subscriptions = new Map()
+  }
+
+  get hub() {
+    return this._app.hub
+  }
+
+  callback() {
+    return this._app.callback()
   }
 }
 
