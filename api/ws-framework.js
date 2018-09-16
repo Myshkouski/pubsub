@@ -4,52 +4,50 @@ const WsApp = require('./ws-app')
 const WsRouter = require('./ws-router')
 const Hub = require('../')
 
-async function onSubscribe(ctx, next) {
+async function onEnter(ctx, next) {
   await next()
 
-  const channel = Hub.normalizeName(ctx.params.channel)
-
-  const subscriptions = ctx.app.subscriptions.get(ctx.socket)
+  const room = Hub.normalizeName(ctx.params.room)
 
   const message = {
     scope: ctx.originalScope,
     payload: false
   }
 
-  if(!subscriptions.has(channel)) {
-    const token = ctx.app.hub.subscribe(channel, function subscriber(payload) {
+  if (!ctx.rooms.has(room)) {
+    const token = ctx.app.hub.subscribe(room, function subscriber(payload) {
       ctx.send({
-        scope: '/message/' + channel,
+        scope: '/event/' + room,
         payload
       })
     })
 
-    subscriptions.set(token.channel, token)
+    if (token) {
+      ctx.rooms.set(token.channel, token)
 
-    message.payload = true
+      message.payload = true
+    }
   }
 
   ctx.send(message)
 }
 
-async function onUnsubscribe(ctx, next) {
+async function onLeave(ctx, next) {
   await next()
 
-  const channel = Hub.normalizeName(ctx.params.channel)
-
-  const subscriptions = ctx.app.subscriptions.get(ctx.socket)
+  const room = Hub.normalizeName(ctx.params.room)
 
   const message = {
     scope: ctx.originalScope,
     payload: false
   }
 
-  if(subscriptions.has(channel)) {
-    const token = subscriptions.get(channel)
+  if (ctx.rooms.has(room)) {
+    const token = ctx.rooms.get(room)
 
     token.unsubscribe()
 
-    subscriptions.delete(channel)
+    ctx.rooms.delete(room)
 
     message.payload = true
   }
@@ -57,10 +55,14 @@ async function onUnsubscribe(ctx, next) {
   ctx.send(message)
 }
 
-async function onMessage(ctx, next) {
-  await next()
+async function onEvent(ctx, next) {
+  if (ctx.rooms.has(ctx.params.room)) {
+    debug('message in "%s" from "%s"', ctx.params.room, ctx.socket.address().address)
 
-  ctx.emit(ctx.params.channel, ctx)
+    await next()
+
+    this.emit(ctx.params.room, ctx)
+  }
 }
 
 class Framework extends EventEmitter {
@@ -77,17 +79,18 @@ class Framework extends EventEmitter {
       .upgrade(async (ctx, next) => {
         await next()
 
-        if(!ctx.app.subscriptions.has(ctx.socket)) {
-          ctx.app.subscriptions.set(ctx.socket, new Map())
+        if (!ctx.app.rooms.has(ctx.socket)) {
+          ctx.app.rooms.set(ctx.socket, new Map())
 
           ctx.socket.once('close', () => {
-            const subscriptions = ctx.app.subscriptions.get(ctx.socket)
+            debug('socket closed', ctx.socket.address().address)
+            const rooms = ctx.app.rooms.get(ctx.socket)
 
-            for(const token of subscriptions.values()) {
+            for (const token of rooms.values()) {
               token.unsubscribe()
             }
 
-            ctx.app.subscriptions.delete(ctx.socket)
+            ctx.app.rooms.delete(ctx.socket)
           })
         }
       })
@@ -96,23 +99,32 @@ class Framework extends EventEmitter {
     router
       .message(require('./parse-message-json')())
       .message((ctx, next) => {
-        ctx.emit = this.emit.bind(this)
-        next()
+        Object.assign(ctx, {
+          get rooms() {
+            return ctx.app.rooms.get(ctx.socket)
+          }
+        })
+
+        return next()
       })
-      .message('/subscribe/:channel', onSubscribe)
-      .message('/unsubscribe/:channel', onUnsubscribe)
-      .message('/message/:channel', onMessage)
+      .message('(\\+|/enter)/:room', onEnter)
+      .message('(\\-|/leave)/:room', onLeave)
+      .message('(\\!|/event)/:room', onEvent.bind(this))
 
     const hub = new Hub({
       separator: '/'
     })
 
     app.hub = hub
-    app.subscriptions = new Map()
+    app.rooms = new WeakMap()
   }
 
   get hub() {
     return this._app.hub
+  }
+
+  get connected() {
+    return this._app.conencted
   }
 
   callback() {

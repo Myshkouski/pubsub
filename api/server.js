@@ -112,8 +112,13 @@ const WsFramework = require('./ws-framework')
 const wsApp = new WsFramework()
 
 wsApp.hub.create('tick')
+wsApp.hub.create('hello')
 
-wsApp.on('hello', console.log)
+wsApp.on('hello', ctx => {
+  ctx.send({
+    scope: '/event/hello'
+  })
+})
 
 setInterval(() => {
   wsApp.hub.publish(['tick'], Date.now())

@@ -1,15 +1,15 @@
-const debug = require('debug')('parse-message')
+const debug = require('debug')('parse-message-array')
 
 function deserialize(ctx, next) {
   let {
     message
   } = ctx
 
-  const rawMessage = message
+  if(!ctx.rawMessage) {
+    ctx.rawMessage = message
+  }
 
   const typeOfMessage = typeof message
-
-  let scope, payload
 
   if (typeOfMessage !== 'object') {
     if (Buffer.isBuffer(message)) {
@@ -21,16 +21,20 @@ function deserialize(ctx, next) {
     message = JSON.parse(message)
   }
 
-  ctx.scope = message.scope
-  ctx.payload = message.payload
+  if(Array.isArray(message)) {
+    ctx.scope = message[0]
+    ctx.payload = message[1]
+  } else {
+    ctx.scope = message.scope
+    ctx.payload = message.payload
+  }
 
-  debug('scope', ctx.scope)
-  debug('payload', '' + ctx.payload)
+  debug('scope: "%s", payload length: %d', ctx.scope, ctx.payload ? ('' + ctx.payload).length : 0)
 
   return next()
 }
 
-module.exports = () => {
+module.exports = options => {
   return function (ctx, next) {
     ctx.deserialize = deserialize
     return deserialize(ctx, next)
