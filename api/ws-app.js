@@ -1,5 +1,5 @@
 const compose = require('koa-compose')
-const WebSocket = require('../../ws')
+const WebSocket = require('@alexeimyshkouski/ws')
 const http = require('http')
 const createContext = require('./context')
 const debug = require('debug')('ws-app')
